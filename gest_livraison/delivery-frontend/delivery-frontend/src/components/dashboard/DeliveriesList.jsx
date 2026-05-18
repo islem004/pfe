@@ -4,7 +4,7 @@ import {
     Clock, CheckCircle, AlertCircle, Printer,
     Truck, MapPin, Eye, FileDown, Plus,
     UserPlus, X, ShieldCheck, RefreshCw, RotateCcw,
-    Navigation, Info, Loader2, User, FileText, Star, Trash2, Receipt
+    Navigation, Info, Loader2, User, FileText, Star, Trash2, Receipt, Download
 } from 'lucide-react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -38,19 +38,19 @@ const DeliveriesList = ({ role }) => {
     const userRole = role || localStorage.getItem('role') || 'client';
 
     const steps = [
-        { id: 'pending', label: 'Created', icon: Package },
-        { id: 'confirmed', label: 'Confirmed', icon: CheckCircle },
-        { id: 'picked_up', label: 'Picked Up', icon: Package },
-        { id: 'in_transit', label: 'Shipped', icon: Truck },
-        { id: 'delivered', label: 'Delivered', icon: MapPin }
+        { id: 'created',   label: 'Created',   icon: Package },
+        { id: 'confirmed', label: 'Confirmed',  icon: CheckCircle },
+        { id: 'picked_up', label: 'Picked Up',  icon: Package },
+        { id: 'shipped',   label: 'Shipped',    icon: Truck },
+        { id: 'delivered', label: 'Delivered',  icon: MapPin }
     ];
 
     const getCurrentStep = (status) => {
         const s = status?.toLowerCase();
-        if (s === 'pending') return 0;
+        if (s === 'created') return 0;
         if (s === 'confirmed') return 1;
         if (s === 'picked_up') return 2;
-        if (s === 'in_transit') return 3;
+        if (s === 'shipped') return 3;
         if (s === 'delivered' || s === 'completed') return 4;
         return -1;
     };
@@ -192,11 +192,12 @@ const DeliveriesList = ({ role }) => {
 
     const getStatusLabel = (status) => {
         switch (status) {
-            case 'pending': return 'Pending';
-            case 'confirmed': return 'Processed';
-            case 'in_transit': return 'In Progress';
+            case 'created':   return 'Created';
+            case 'confirmed': return 'Confirmed';
+            case 'picked_up': return 'Picked Up';
+            case 'shipped':   return 'Shipped';
             case 'delivered': return 'Delivered';
-            case 'failed': return 'Failed';
+            case 'failed':    return 'Failed';
             case 'cancelled': return 'Cancelled';
             default: return status || 'Unknown';
         }
@@ -205,9 +206,10 @@ const DeliveriesList = ({ role }) => {
     const getStatusStyle = (status) => {
         switch (status) {
             case 'delivered': return 'bg-emerald-50 text-emerald-600 border-emerald-100';
-            case 'in_transit': return 'bg-blue-50 text-blue-600 border-blue-100';
+            case 'shipped':   return 'bg-violet-50 text-violet-600 border-violet-100';
+            case 'picked_up': return 'bg-blue-50 text-blue-600 border-blue-100';
             case 'confirmed': return 'bg-indigo-50 text-indigo-600 border-indigo-100';
-            case 'pending': return 'bg-amber-50 text-amber-600 border-amber-100';
+            case 'created':   return 'bg-orange-50 text-orange-600 border-orange-100';
             case 'failed':
             case 'cancelled': return 'bg-red-50 text-red-600 border-red-100';
             default: return 'bg-slate-50 text-slate-600 border-slate-100';
@@ -280,6 +282,23 @@ const DeliveriesList = ({ role }) => {
         } catch { alert('Error opening document.'); }
     };
 
+    const handleDownloadFile = async (url, filename) => {
+        try {
+            const resp = await axios.get(url, {
+                headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+                responseType: 'blob',
+            });
+            const blobUrl = window.URL.createObjectURL(new Blob([resp.data]));
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.setAttribute('download', filename);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            setTimeout(() => window.URL.revokeObjectURL(blobUrl), 10000);
+        } catch { alert('Error downloading file.'); }
+    };
+
     const handleTrackDelivery = async (id) => {
         setTrackModal({ open: true, data: null, loading: true });
         try {
@@ -295,8 +314,8 @@ const DeliveriesList = ({ role }) => {
 
     const getTrackingLabel = (status) => {
         const map = {
-            pending: 'Order Created', confirmed: 'Confirmed & Processed',
-            picked_up: 'Picked Up', in_transit: 'In Transit',
+            created: 'Order Created', confirmed: 'Confirmed & Processed',
+            picked_up: 'Picked Up', shipped: 'Shipped',
             delivered: 'Delivered', failed: 'Delivery Failed', cancelled: 'Cancelled',
         };
         return map[status] || (status || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
@@ -325,9 +344,10 @@ const DeliveriesList = ({ role }) => {
                                 className="bg-slate-50 border-none rounded-2xl py-3.5 px-6 pr-10 focus:ring-2 focus:ring-blue-600 outline-none text-xs font-black uppercase tracking-widest appearance-none cursor-pointer"
                             >
                                 <option value="">All statuses</option>
-                                <option value="pending">Pending</option>
-                                <option value="confirmed">Processed</option>
-                                <option value="in_transit">In Progress</option>
+                                <option value="created">Created</option>
+                                <option value="confirmed">Confirmed</option>
+                                <option value="picked_up">Picked Up</option>
+                                <option value="shipped">Shipped</option>
                                 <option value="delivered">Delivered</option>
                                 <option value="failed">Failed</option>
                                 <option value="cancelled">Cancelled</option>
@@ -414,12 +434,12 @@ const DeliveriesList = ({ role }) => {
                                                     </div>
                                                 </td>
                                                 <td className="p-6">
-                                                    <span 
-                                                        onClick={(e) => d.status === 'pending' && userRole === 'admin' ? triggerConfirm(e, d.id) : null}
+                                                    <span
+                                                        onClick={(e) => d.status === 'created' && userRole === 'admin' ? triggerConfirm(e, d.id) : null}
                                                         className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${getStatusStyle(d.status)} ${
-                                                            d.status === 'pending' && userRole === 'admin' ? 'cursor-pointer hover:scale-105 hover:shadow-md hover:bg-indigo-600 hover:text-white hover:border-indigo-600' : ''
+                                                            d.status === 'created' && userRole === 'admin' ? 'cursor-pointer hover:scale-105 hover:shadow-md hover:bg-indigo-600 hover:text-white hover:border-indigo-600' : ''
                                                         }`}
-                                                        title={d.status === 'pending' && userRole === 'admin' ? 'Click to confirm' : ''}
+                                                        title={d.status === 'created' && userRole === 'admin' ? 'Click to confirm' : ''}
                                                     >
                                                         {getStatusLabel(d.status)}
                                                     </span>
@@ -462,14 +482,30 @@ const DeliveriesList = ({ role }) => {
                                                                 >
                                                                     <Printer className="w-4 h-4" />
                                                                 </button>
+                                                                <button
+                                                                    onClick={() => handleDownloadFile(`/api/deliveries/${d.id}/print`, `slip-${d.delivery_number}.pdf`)}
+                                                                    className="p-2.5 bg-slate-100 text-slate-500 rounded-xl hover:bg-blue-600 hover:text-white transition-all shadow-sm"
+                                                                    title="Download Delivery Slip"
+                                                                >
+                                                                    <Download className="w-4 h-4" />
+                                                                </button>
                                                                 {d.invoices?.length > 0 && (
-                                                                    <button
-                                                                        onClick={() => openPdfInTab(`/api/invoices/${d.invoices[0].id}/print`)}
-                                                                        className="p-2.5 bg-slate-100 text-slate-500 rounded-xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm"
-                                                                        title="View Invoice"
-                                                                    >
-                                                                        <Receipt className="w-4 h-4" />
-                                                                    </button>
+                                                                    <>
+                                                                        <button
+                                                                            onClick={() => openPdfInTab(`/api/invoices/${d.invoices[0].id}/print`)}
+                                                                            className="p-2.5 bg-slate-100 text-slate-500 rounded-xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm"
+                                                                            title="View Invoice"
+                                                                        >
+                                                                            <Receipt className="w-4 h-4" />
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={() => handleDownloadFile(`/api/invoices/${d.invoices[0].id}/print`, `invoice-${d.invoices[0].invoice_number}.pdf`)}
+                                                                            className="p-2.5 bg-slate-100 text-slate-500 rounded-xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm"
+                                                                            title="Download Invoice"
+                                                                        >
+                                                                            <FileDown className="w-4 h-4" />
+                                                                        </button>
+                                                                    </>
                                                                 )}
                                                                 <button
                                                                     onClick={() => handleTrackDelivery(d.id)}

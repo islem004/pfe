@@ -154,12 +154,15 @@ const Register = () => {
                 password_confirmation: formData.password_confirmation,
             };
 
-            const response = await axios.post('/api/auth/register', payload);
-            const { token, user } = response.data;
-            localStorage.setItem('token', token);
-            localStorage.setItem('user', JSON.stringify(user));
-            localStorage.setItem('role', 'client');
-            navigate('/dashboard');
+            await axios.post('/api/auth/register', payload);
+            // Registration successful — account is pending admin approval.
+            // Do NOT issue a token or redirect to dashboard.
+            navigate('/login', {
+                state: {
+                    registrationSuccess: true,
+                    message: 'Account created successfully. An admin will review and approve your account — you\'ll be able to log in once approved.',
+                }
+            });
         } catch (err) {
             if (err.response?.data?.errors) {
                 const firstError = Object.values(err.response.data.errors)[0][0];

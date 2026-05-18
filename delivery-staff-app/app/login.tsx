@@ -11,6 +11,7 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { router } from 'expo-router';
 
@@ -58,7 +59,7 @@ export default function LoginScreen() {
             >
                 <View style={styles.content}>
                     <View style={styles.header}>
-                        <Text style={styles.logo}>🚚</Text>
+                        <Ionicons name="car-outline" size={64} color="#2563eb" style={{ marginBottom: 8 }} />
                         <Text style={styles.title}>SwiftDeliver</Text>
                         <Text style={styles.subtitle}>Driver Portal</Text>
                     </View>
@@ -109,7 +110,7 @@ const styles = StyleSheet.create({
     keyboardView: { flex: 1 },
     content: { flex: 1, justifyContent: 'center', padding: 24 },
     header: { alignItems: 'center', marginBottom: 48 },
-    logo: { fontSize: 64, marginBottom: 8 },
+    logo: { marginBottom: 8 },
     title: { fontSize: 32, fontWeight: 'bold', color: '#2563eb' },
     subtitle: { fontSize: 16, color: '#6b7280', marginTop: 4 },
     form: {},

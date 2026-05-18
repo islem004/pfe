@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
     Package, Clock, CheckCircle, Truck, TrendingUp, TrendingDown,
     UserPlus, AlertCircle, Plus, MapPin, ChevronRight, Activity,
-    Loader2, X, Banknote, Zap
+    Loader2, X, Banknote, Zap, MessageSquare
 } from 'lucide-react';
 import {
     AreaChart, Area, PieChart, Pie, Cell,
@@ -17,20 +17,20 @@ import { Card } from "../ui/card";
 // ─────────────────────────────────────────────────────────────
 
 const STATUS_COLORS = {
-    pending:    '#f97316',
+    created:    '#f97316',
     confirmed:  '#6366f1',
     picked_up:  '#3b82f6',
-    in_transit: '#8b5cf6',
+    shipped:    '#8b5cf6',
     delivered:  '#10b981',
     failed:     '#ef4444',
     cancelled:  '#94a3b8',
 };
 
 const STATUS_LABELS = {
-    pending:    'Pending',
+    created:    'Created',
     confirmed:  'Confirmed',
     picked_up:  'Picked Up',
-    in_transit: 'In Transit',
+    shipped:    'Shipped',
     delivered:  'Delivered',
     failed:     'Failed',
     cancelled:  'Cancelled',
@@ -61,10 +61,10 @@ const activityMeta = (type, status) => {
         return { icon: UserPlus,     bg: 'bg-emerald-50', color: 'text-emerald-600', label: 'New client registered' };
     }
     const map = {
-        pending:    { icon: Package,      bg: 'bg-blue-50',   color: 'text-blue-600',   label: 'New delivery created'  },
+        created:    { icon: Package,      bg: 'bg-orange-50', color: 'text-orange-600', label: 'New delivery created'  },
         confirmed:  { icon: CheckCircle,  bg: 'bg-indigo-50', color: 'text-indigo-600', label: 'Delivery confirmed'    },
         picked_up:  { icon: Package,      bg: 'bg-sky-50',    color: 'text-sky-600',    label: 'Delivery picked up'    },
-        in_transit: { icon: Truck,        bg: 'bg-blue-50',   color: 'text-blue-600',   label: 'Delivery in transit'   },
+        shipped:    { icon: Truck,        bg: 'bg-blue-50',   color: 'text-blue-600',   label: 'Delivery shipped'      },
         delivered:  { icon: CheckCircle,  bg: 'bg-emerald-50',color: 'text-emerald-600',label: 'Delivery completed'    },
         failed:     { icon: AlertCircle,  bg: 'bg-red-50',    color: 'text-red-600',    label: 'Delivery failed'       },
         cancelled:  { icon: X,            bg: 'bg-slate-100', color: 'text-slate-500',  label: 'Delivery cancelled'    },
@@ -98,12 +98,14 @@ const ChartTip = ({ active, payload }) => {
 // ─────────────────────────────────────────────────────────────
 
 const AdminOverview = ({ user, setActiveTab }) => {
-    const [data, setData]     = useState(null);
-    const [loading, setLoading] = useState(true);
+    const [data, setData]           = useState(null);
+    const [loading, setLoading]     = useState(true);
+    const [complaints, setComplaints]           = useState([]);
+    const [complaintsLoading, setComplaintsLoading] = useState(true);
 
     const firstName = user?.first_name || 'Admin';
 
-    useEffect(() => { load(); }, []);
+    useEffect(() => { load(); loadComplaints(); }, []);
 
     const load = async () => {
         setLoading(true);
@@ -116,6 +118,21 @@ const AdminOverview = ({ user, setActiveTab }) => {
             console.error('AdminOverview error:', err);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const loadComplaints = async () => {
+        setComplaintsLoading(true);
+        try {
+            const res = await axios.get('/api/admin/complaints', {
+                headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+            });
+            const list = Array.isArray(res.data) ? res.data : [];
+            setComplaints(list.slice(0, 5));
+        } catch (err) {
+            console.error('AdminOverview complaints error:', err);
+        } finally {
+            setComplaintsLoading(false);
         }
     };
 
@@ -481,7 +498,62 @@ const AdminOverview = ({ user, setActiveTab }) => {
                 </div>
             </div>
 
-            {/* ── Row 4: Recent Activity Feed ── */}
+            {/* ── Row 4: Recent Complaints ── */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+                <div className="flex items-center justify-between mb-4">
+                    <p className="text-xs font-black uppercase tracking-widest text-slate-400">
+                        Recent Complaints
+                    </p>
+                    <button
+                        onClick={() => setActiveTab('complaints')}
+                        className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-blue-600 hover:text-blue-700 transition-colors"
+                    >
+                        View All <ChevronRight size={12} />
+                    </button>
+                </div>
+
+                {complaintsLoading ? (
+                    <div className="space-y-3">
+                        {[...Array(3)].map((_, i) => <Sk key={i} className="h-12 rounded-xl" />)}
+                    </div>
+                ) : complaints.length > 0 ? (
+                    <div className="space-y-2">
+                        {complaints.map((c) => (
+                            <div key={c.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
+                                <div className="size-8 rounded-lg bg-slate-900 text-white flex items-center justify-center font-black text-[10px] shrink-0">
+                                    {(c.user?.first_name?.[0] || '?').toUpperCase()}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-xs font-black text-slate-900 truncate">{c.subject}</p>
+                                    <p className="text-[10px] text-slate-400 truncate font-medium mt-0.5">
+                                        {c.user?.first_name} {c.user?.last_name}
+                                        {c.delivery?.delivery_number && ` · #${c.delivery.delivery_number}`}
+                                    </p>
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                    <span className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg ${
+                                        c.status === 'resolved'
+                                            ? 'bg-emerald-50 text-emerald-600'
+                                            : 'bg-amber-50 text-amber-600'
+                                    }`}>
+                                        {c.status}
+                                    </span>
+                                    <span className="text-[10px] font-bold text-slate-400 whitespace-nowrap">
+                                        {timeAgo(c.created_at)}
+                                    </span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="h-32 flex flex-col items-center justify-center gap-2">
+                        <MessageSquare className="size-8 text-slate-200" />
+                        <p className="text-xs font-black text-slate-400">No complaints yet</p>
+                    </div>
+                )}
+            </div>
+
+            {/* ── Row 5: Recent Activity Feed ── */}
             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
                 <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-4">
                     Recent Activity
@@ -570,20 +642,20 @@ const StatCard = ({ icon: Icon, label, value, color }) => {
 // ─────────────────────────────────────────────────────────────
 
 const STATUS_META = {
-    pending:    { label: 'Pending',    color: '#F59E0B' },
-    confirmed:  { label: 'Confirmed',  color: '#3B82F6' },
+    created:    { label: 'Created',    color: '#F97316' },
+    confirmed:  { label: 'Confirmed',  color: '#6366F1' },
     picked_up:  { label: 'Picked Up',  color: '#3B82F6' },
-    in_transit: { label: 'In Transit', color: '#6366F1' },
+    shipped:    { label: 'Shipped',    color: '#8B5CF6' },
     delivered:  { label: 'Delivered',  color: '#22C55E' },
     failed:     { label: 'Failed',     color: '#EF4444' },
     cancelled:  { label: 'Cancelled',  color: '#9CA3AF' },
 };
 
 const STATUS_BADGE = {
-    pending:    'bg-amber-50 text-amber-600 border-amber-100',
+    created:    'bg-orange-50 text-orange-600 border-orange-100',
     confirmed:  'bg-indigo-50 text-indigo-600 border-indigo-100',
     picked_up:  'bg-blue-50 text-blue-600 border-blue-100',
-    in_transit: 'bg-blue-50 text-blue-600 border-blue-100',
+    shipped:    'bg-violet-50 text-violet-600 border-violet-100',
     delivered:  'bg-emerald-50 text-emerald-600 border-emerald-100',
     failed:     'bg-red-50 text-red-600 border-red-100',
     cancelled:  'bg-slate-50 text-slate-600 border-slate-100',

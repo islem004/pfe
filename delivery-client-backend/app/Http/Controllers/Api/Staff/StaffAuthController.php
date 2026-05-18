@@ -73,6 +73,43 @@ class StaffAuthController extends Controller
         return response()->json($request->user()->load('staff.region', 'roles'));
     }
 
+    public function updateProfile(Request $request)
+    {
+        $user = $request->user();
+
+        $request->validate([
+            'phone'  => ['nullable', 'regex:/^\+?[0-9]{8,15}$/'],
+            'avatar' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:2048'],
+        ], [
+            'phone.regex'  => 'Phone must be 8–15 digits, optionally starting with +.',
+            'avatar.max'   => 'Profile picture must be under 2 MB.',
+            'avatar.mimes' => 'Profile picture must be a JPEG, PNG, or WebP image.',
+        ]);
+
+        $data = [];
+
+        if ($request->has('phone')) {
+            $data['phone'] = $request->phone;
+        }
+
+        if ($request->hasFile('avatar')) {
+            if ($user->avatar) {
+                \Storage::disk('public')->delete($user->avatar);
+            }
+            $path = $request->file('avatar')->store('staff-avatars', 'public');
+            $data['avatar'] = $path;
+        }
+
+        if (!empty($data)) {
+            $user->update($data);
+        }
+
+        return response()->json([
+            'message' => 'Profile updated successfully',
+            'user'    => $user->fresh()->load('staff.region', 'roles'),
+        ]);
+    }
+
     public function logout(Request $request)
     {
         $request->user()->currentAccessToken()->delete();

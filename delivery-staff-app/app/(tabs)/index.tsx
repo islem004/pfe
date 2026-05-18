@@ -10,15 +10,17 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
+import { getUnlockedIds } from '../../utils/unlockedDeliveries';
 import api from '../../services/api';
 
 const STATUS_COLORS: Record<string, { bg: string; text: string; label: string }> = {
-    pending:    { bg: '#fef3c7', text: '#92400e', label: 'Pending' },
-    confirmed:  { bg: '#dbeafe', text: '#1e40af', label: 'Confirmed' },
-    picked_up:  { bg: '#ede9fe', text: '#5b21b6', label: 'Picked Up' },
-    in_transit: { bg: '#d1fae5', text: '#065f46', label: 'In Transit' },
+    created:    { bg: '#ffedd5', text: '#9a3412', label: 'Created' },
+    confirmed:  { bg: '#ede9fe', text: '#5b21b6', label: 'Confirmed' },
+    picked_up:  { bg: '#dbeafe', text: '#1e40af', label: 'Picked Up' },
+    shipped:    { bg: '#f5f3ff', text: '#4c1d95', label: 'Shipped' },
     delivered:  { bg: '#dcfce7', text: '#14532d', label: 'Delivered' },
     failed:     { bg: '#fee2e2', text: '#991b1b', label: 'Failed' },
     cancelled:  { bg: '#f1f5f9', text: '#475569', label: 'Cancelled' },
@@ -34,14 +36,32 @@ const PRIORITY_COLORS: Record<string, string> = {
 export default function DeliveriesScreen() {
     const { user } = useAuth();
     const [deliveries, setDeliveries] = useState<any[]>([]);
+    const [unlockedIds, setUnlockedIds] = useState<Set<number>>(new Set());
+    const [myRank, setMyRank] = useState<number | null>(null);
+    const [myCompleted, setMyCompleted] = useState(0);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
 
+    const loadUnlocked = async () => {
+        if (user?.id) {
+            const ids = await getUnlockedIds(user.id);
+            setUnlockedIds(ids);
+        }
+    };
+
     const fetchDeliveries = async () => {
         try {
-            const response = await api.get('/staff/deliveries');
+            const [response, rankResp] = await Promise.all([
+                api.get('/staff/deliveries'),
+                api.get('/staff/my-rank').catch(() => null),
+                loadUnlocked(),
+            ]);
             setDeliveries(response.data);
+            if (rankResp?.data) {
+                setMyRank(rankResp.data.rank);
+                setMyCompleted(rankResp.data.completed ?? 0);
+            }
         } catch (error: any) {
             console.log('Failed to fetch deliveries:', error.message);
         } finally {
@@ -59,11 +79,14 @@ export default function DeliveriesScreen() {
         fetchDeliveries();
     }, []);
 
+    const isUnlocked = (id: number, status: string) =>
+        unlockedIds.has(id) || ['delivered', 'failed', 'cancelled'].includes(status);
+
     // Calculate stats from deliveries
     const stats = {
         completed: deliveries.filter(d => d.status === 'delivered').length,
-        active: deliveries.filter(d => ['picked_up', 'in_transit'].includes(d.status)).length,
-        upcoming: deliveries.filter(d => ['pending', 'confirmed'].includes(d.status)).length,
+        active: deliveries.filter(d => ['picked_up', 'shipped'].includes(d.status)).length,
+        upcoming: deliveries.filter(d => ['created', 'confirmed'].includes(d.status)).length,
     };
 
     const normalize = (str: string) =>
@@ -72,12 +95,18 @@ export default function DeliveriesScreen() {
     const filteredDeliveries = searchQuery.trim()
         ? deliveries.filter(d => {
               const q = normalize(searchQuery);
+              if (isUnlocked(d.id, d.status)) {
+                  return (
+                      normalize(d.delivery_number).includes(q) ||
+                      normalize(d.delivery_address_text).includes(q) ||
+                      normalize(d.dest_city).includes(q) ||
+                      normalize(d.client?.company_name).includes(q) ||
+                      normalize(d.region?.name).includes(q)
+                  );
+              }
               return (
                   normalize(d.delivery_number).includes(q) ||
-                  normalize(d.delivery_address_text).includes(q) ||
-                  normalize(d.dest_city).includes(q) ||
-                  normalize(d.client?.company_name).includes(q) ||
-                  normalize(d.region?.name).includes(q)
+                  normalize(d.dest_city).includes(q)
               );
           })
         : deliveries;
@@ -85,6 +114,30 @@ export default function DeliveriesScreen() {
     const renderDeliveryCard = ({ item }: { item: any }) => {
         const statusInfo = STATUS_COLORS[item.status] || STATUS_COLORS.draft;
         const priorityColor = PRIORITY_COLORS[item.priority] || PRIORITY_COLORS.normal;
+
+        if (!isUnlocked(item.id, item.status)) {
+            return (
+                <View style={[styles.card, styles.lockedCard]}>
+                    <View style={styles.cardTopRow}>
+                        <View style={[styles.statusBadge, { backgroundColor: statusInfo.bg }]}>
+                            <Text style={[styles.statusText, { color: statusInfo.text }]}>
+                                {statusInfo.label}
+                            </Text>
+                        </View>
+                        <Text style={[styles.deliveryNumber, { color: '#2563eb' }]}>
+                            {item.delivery_number}
+                        </Text>
+                    </View>
+                    {item.dest_city ? (
+                        <Text style={styles.lockedCity}>{item.dest_city}</Text>
+                    ) : null}
+                    <View style={styles.lockedHint}>
+                        <Ionicons name="lock-closed-outline" size={14} color="#9ca3af" />
+                        <Text style={styles.lockedText}>Scan barcode to unlock details</Text>
+                    </View>
+                </View>
+            );
+        }
 
         return (
             <TouchableOpacity
@@ -113,7 +166,7 @@ export default function DeliveriesScreen() {
                 {/* Client */}
                 {item.client && (
                     <View style={styles.clientRow}>
-                        <Text style={styles.clientIcon}>👤</Text>
+                        <Ionicons name="person-outline" size={18} color="#6b7280" style={{ marginRight: 10 }} />
                         <View>
                             <Text style={styles.clientName}>{item.client.company_name}</Text>
                             {item.client.contact_phone && (
@@ -127,7 +180,7 @@ export default function DeliveriesScreen() {
                 <View style={styles.addressSection}>
                     {item.pickup_address_text && (
                         <View style={styles.addressRow}>
-                            <Text style={styles.addressDot}>🟢</Text>
+                            <View style={[styles.addressDot, { backgroundColor: '#22c55e' }]} />
                             <View style={styles.addressTextContainer}>
                                 <Text style={styles.addressLabel}>Picked up from</Text>
                                 <Text style={styles.addressText} numberOfLines={1}>
@@ -138,7 +191,7 @@ export default function DeliveriesScreen() {
                     )}
                     {item.delivery_address_text && (
                         <View style={styles.addressRow}>
-                            <Text style={styles.addressDot}>🔴</Text>
+                            <View style={[styles.addressDot, { backgroundColor: '#ef4444' }]} />
                             <View style={styles.addressTextContainer}>
                                 <Text style={styles.addressLabel}>Deliver to</Text>
                                 <Text style={styles.addressText} numberOfLines={1}>
@@ -152,7 +205,7 @@ export default function DeliveriesScreen() {
                 {/* Special Instructions */}
                 {item.special_instructions && (
                     <View style={styles.notesBox}>
-                        <Text style={styles.notesIcon}>⚠️</Text>
+                        <Ionicons name="warning-outline" size={14} color="#92400e" style={{ marginRight: 8 }} />
                         <Text style={styles.notesText} numberOfLines={2}>
                             {item.special_instructions}
                         </Text>
@@ -162,7 +215,7 @@ export default function DeliveriesScreen() {
                 {/* Items Count */}
                 {item.items && item.items.length > 0 && (
                     <View style={styles.itemsRow}>
-                        <Text style={styles.itemsIcon}>📦</Text>
+                        <Ionicons name="cube-outline" size={14} color="#6b7280" style={{ marginRight: 6 }} />
                         <Text style={styles.itemsText}>
                             {item.items.length} item{item.items.length > 1 ? 's' : ''}
                         </Text>
@@ -206,6 +259,17 @@ export default function DeliveriesScreen() {
                 </View>
             </View>
 
+            {/* Top staff banner */}
+            {myRank === 1 && myCompleted > 0 && (
+                <View style={styles.topBanner}>
+                    <Ionicons name="trophy" size={20} color="#92400e" style={{ marginRight: 8 }} />
+                    <View>
+                        <Text style={styles.topBannerTitle}>Top Delivery Staff This Month</Text>
+                        <Text style={styles.topBannerSub}>{myCompleted} deliveries completed — keep it up!</Text>
+                    </View>
+                </View>
+            )}
+
             {/* Search Bar */}
             <View style={styles.searchContainer}>
                 <TextInput
@@ -229,7 +293,12 @@ export default function DeliveriesScreen() {
             {/* Delivery List */}
             {filteredDeliveries.length === 0 ? (
                 <View style={styles.emptyContainer}>
-                    <Text style={styles.emptyIcon}>{searchQuery ? '🔍' : '📭'}</Text>
+                    <Ionicons
+                    name={searchQuery ? 'search-outline' : 'mail-unread-outline'}
+                    size={64}
+                    color="#9ca3af"
+                    style={{ marginBottom: 16 }}
+                />
                     <Text style={styles.emptyTitle}>{searchQuery ? 'No matches found' : 'No deliveries assigned'}</Text>
                     <Text style={styles.emptySubtitle}>{searchQuery ? 'Try a different search term' : 'Pull down to refresh'}</Text>
                 </View>
@@ -282,6 +351,20 @@ const styles = StyleSheet.create({
     },
     statNumber: { color: '#fff', fontSize: 24, fontWeight: 'bold' },
     statLabel: { color: 'rgba(255,255,255,0.8)', fontSize: 11, marginTop: 2 },
+
+    topBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#fef3c7',
+        borderLeftWidth: 4,
+        borderLeftColor: '#f59e0b',
+        marginHorizontal: 20,
+        marginTop: 14,
+        borderRadius: 12,
+        padding: 14,
+    },
+    topBannerTitle: { fontSize: 14, fontWeight: '700', color: '#92400e' },
+    topBannerSub: { fontSize: 12, color: '#b45309', marginTop: 1 },
 
     searchContainer: {
         paddingHorizontal: 20,
@@ -346,7 +429,7 @@ const styles = StyleSheet.create({
 
     addressSection: { marginBottom: 12 },
     addressRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8 },
-    addressDot: { fontSize: 10, marginRight: 10, marginTop: 2 },
+    addressDot: { width: 8, height: 8, borderRadius: 4, marginRight: 10, marginTop: 4 },
     addressTextContainer: { flex: 1 },
     addressLabel: { fontSize: 11, color: '#9ca3af', marginBottom: 1 },
     addressText: { fontSize: 13, color: '#374151' },
@@ -366,6 +449,11 @@ const styles = StyleSheet.create({
     itemsText: { fontSize: 12, color: '#6b7280' },
 
     listContent: { paddingBottom: 20 },
+
+    lockedCard: { opacity: 0.85 },
+    lockedCity: { fontSize: 13, color: '#6b7280', marginBottom: 8 },
+    lockedHint: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    lockedText: { fontSize: 12, color: '#9ca3af' },
 
     emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 },
     emptyIcon: { fontSize: 64, marginBottom: 16 },

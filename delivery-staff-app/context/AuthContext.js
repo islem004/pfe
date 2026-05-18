@@ -25,11 +25,11 @@ export const AuthProvider = ({ children }) => {
                 // Verify token is still valid by calling /staff/me
                 const response = await api.get('/staff/me');
                 setUser(response.data);
-                console.log('✅ Auto-login successful');
+                console.log('Auto-login successful');
             }
         } catch (error) {
             // Token expired or invalid — clear it
-            console.log('⚠️ Saved token invalid, clearing');
+            console.log('Saved token invalid, clearing');
             await AsyncStorage.removeItem('staff_token');
         } finally {
             setLoading(false);
@@ -51,7 +51,7 @@ export const AuthProvider = ({ children }) => {
         setToken(newToken);
         setUser(userData);
 
-        console.log('✅ Login successful');
+        console.log('Login successful');
         return response.data;
     };
 
@@ -67,11 +67,13 @@ export const AuthProvider = ({ children }) => {
         delete api.defaults.headers.common['Authorization'];
         setToken(null);
         setUser(null);
-        console.log('✅ Logged out');
+        console.log('Logged out');
     };
 
+    const updateUser = (userData) => setUser(userData);
+
     return (
-        <AuthContext.Provider value={{ user, token, loading, login, logout }}>
+        <AuthContext.Provider value={{ user, token, loading, login, logout, updateUser }}>
             {children}
         </AuthContext.Provider>
     );

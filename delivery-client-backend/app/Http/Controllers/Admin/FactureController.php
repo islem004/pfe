@@ -59,6 +59,30 @@ class FactureController extends Controller
         ]);
     }
 
+    /**
+     * Generate invoices for every delivery that doesn't have one yet.
+     * Skips cancelled deliveries.
+     */
+    public function generateAllMissing()
+    {
+        $deliveries = Delivery::with(['client.region', 'items', 'region'])
+            ->whereDoesntHave('invoices')
+            ->where('status', '!=', 'cancelled')
+            ->get();
+
+        $generated = 0;
+        foreach ($deliveries as $delivery) {
+            try {
+                $this->generateInvoiceForDelivery($delivery);
+                $generated++;
+            } catch (\Exception $e) {
+                \Log::error("generateAllMissing: failed for delivery #{$delivery->id}: " . $e->getMessage());
+            }
+        }
+
+        return response()->json(['generated' => $generated]);
+    }
+
     public function destroy($id)
     {
         $invoice = Invoice::findOrFail($id);

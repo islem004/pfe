@@ -113,10 +113,10 @@ class StatistiqueController extends Controller
         $total = (int) $stats->sum();
 
         $statuses = [
-            'pending'    => 'Pending',
+            'created'    => 'Created',
             'confirmed'  => 'Confirmed',
-            'in_transit' => 'In Transit',
             'picked_up'  => 'Picked Up',
+            'shipped'    => 'Shipped',
             'delivered'  => 'Delivered',
             'failed'     => 'Failed',
             'cancelled'  => 'Cancelled',
@@ -166,8 +166,8 @@ class StatistiqueController extends Controller
         $grouped = $rows->groupBy('date')->map(fn ($g) => [
             'date'       => $g->first()->date,
             'delivered'  => (int) $g->where('status', 'delivered')->sum('cnt'),
-            'in_transit' => (int) $g->whereIn('status', ['in_transit', 'picked_up'])->sum('cnt'),
-            'pending'    => (int) $g->whereIn('status', ['pending', 'confirmed'])->sum('cnt'),
+            'in_transit' => (int) $g->whereIn('status', ['shipped', 'picked_up'])->sum('cnt'),
+            'pending'    => (int) $g->whereIn('status', ['created', 'confirmed'])->sum('cnt'),
             'failed'     => (int) $g->whereIn('status', ['failed', 'cancelled'])->sum('cnt'),
         ])->values();
 

@@ -16,7 +16,7 @@ const api = axios.create({
 api.interceptors.request.use(async (config) => {
     if (config.url && config.url.includes('/login')) {
         delete config.headers.Authorization;
-        console.log('📤', config.method?.toUpperCase(), config.url, '(no token — login request)');
+        console.log('[REQ]', config.method?.toUpperCase(), config.url, '(no token - login request)');
         return config;
     }
 
@@ -29,24 +29,24 @@ api.interceptors.request.use(async (config) => {
         // AsyncStorage failed, continue without token
     }
 
-    console.log('📤', config.method?.toUpperCase(), config.url);
+    console.log('[REQ]', config.method?.toUpperCase(), config.url);
     return config;
 });
 
 // LOG RESPONSES
 api.interceptors.response.use(
     (response) => {
-        console.log('✅', response.status, response.config.url);
+        console.log('[RES]', response.status, response.config.url);
         return response;
     },
     (error) => {
         if (error.response) {
-            console.log('❌', error.response.status, error.config?.url);
+            console.log('[ERR]', error.response.status, error.config?.url);
             console.log('   Data:', JSON.stringify(error.response.data));
         } else if (error.request) {
-            console.log('❌ NETWORK ERROR — no response from server');
+            console.log('[ERR] NETWORK ERROR - no response from server');
         } else {
-            console.log('❌', error.message);
+            console.log('[ERR]', error.message);
         }
         return Promise.reject(error);
     }

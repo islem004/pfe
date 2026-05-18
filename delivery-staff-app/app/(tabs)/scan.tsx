@@ -11,19 +11,23 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../../context/AuthContext';
+import { unlockDelivery } from '../../utils/unlockedDeliveries';
 import api from '../../services/api';
 
 const STATUS_COLORS: Record<string, { bg: string; text: string; label: string }> = {
-    draft:      { bg: '#e5e7eb', text: '#374151', label: 'Draft' },
-    pending:    { bg: '#fef3c7', text: '#92400e', label: 'Pending' },
+    created:    { bg: '#ffedd5', text: '#9a3412', label: 'Created' },
+    confirmed:  { bg: '#ede9fe', text: '#5b21b6', label: 'Confirmed' },
     picked_up:  { bg: '#dbeafe', text: '#1e40af', label: 'Picked Up' },
-    in_transit: { bg: '#d1fae5', text: '#065f46', label: 'In Transit' },
-    delivered:  { bg: '#d1fae5', text: '#065f46', label: 'Delivered' },
+    shipped:    { bg: '#f5f3ff', text: '#4c1d95', label: 'Shipped' },
+    delivered:  { bg: '#dcfce7', text: '#14532d', label: 'Delivered' },
     failed:     { bg: '#fee2e2', text: '#991b1b', label: 'Failed' },
-    problem:    { bg: '#fef3c7', text: '#92400e', label: 'Problem' },
+    cancelled:  { bg: '#f1f5f9', text: '#475569', label: 'Cancelled' },
 };
 
 export default function ScanScreen() {
+    const { user } = useAuth();
     const [permission, requestPermission] = useCameraPermissions();
     const [scanned, setScanned] = useState(false);
     const [searching, setSearching] = useState(false);
@@ -42,6 +46,9 @@ export default function ScanScreen() {
                 barcode_value: barcodeValue.trim(),
             });
             setResult(response.data);
+            if (user?.id && response.data?.id) {
+                await unlockDelivery(user.id, response.data.id);
+            }
         } catch (err: any) {
             const msg = err.response?.data?.message || 'Delivery not found';
             setError(msg);
@@ -90,7 +97,7 @@ export default function ScanScreen() {
         return (
             <SafeAreaView style={styles.container} edges={['top']}>
                 <View style={styles.centerContent}>
-                    <Text style={styles.permIcon}>📷</Text>
+                    <Ionicons name="camera-outline" size={64} color="#9ca3af" style={{ marginBottom: 16 }} />
                     <Text style={styles.permTitle}>Camera Access Needed</Text>
                     <Text style={styles.permText}>
                         We need camera access to scan delivery barcodes
@@ -180,7 +187,7 @@ export default function ScanScreen() {
             {error !== '' && (
                 <View style={styles.resultSection}>
                     <View style={styles.errorBox}>
-                        <Text style={styles.errorText}>❌ {error}</Text>
+                        <Text style={styles.errorText}>{error}</Text>
                     </View>
                     <TouchableOpacity style={styles.scanAgainButton} onPress={resetScan}>
                         <Text style={styles.scanAgainText}>Scan Again</Text>
@@ -202,21 +209,26 @@ export default function ScanScreen() {
                         </View>
 
                         {result.client && (
-                            <Text style={styles.resultDetail}>
-                                👤 {result.client.company_name}
-                            </Text>
+                            <View style={styles.resultDetailRow}>
+                                <Ionicons name="person-outline" size={14} color="#6b7280" />
+                                <Text style={styles.resultDetailText}>{result.client.company_name}</Text>
+                            </View>
                         )}
 
                         {result.delivery_address_text && (
-                            <Text style={styles.resultDetail}>
-                                📍 {result.delivery_address_text}
-                            </Text>
+                            <View style={styles.resultDetailRow}>
+                                <Ionicons name="location-outline" size={14} color="#6b7280" />
+                                <Text style={styles.resultDetailText}>{result.delivery_address_text}</Text>
+                            </View>
                         )}
 
                         {result.items && (
-                            <Text style={styles.resultDetail}>
-                                📦 {result.items.length} item{result.items.length > 1 ? 's' : ''}
-                            </Text>
+                            <View style={styles.resultDetailRow}>
+                                <Ionicons name="cube-outline" size={14} color="#6b7280" />
+                                <Text style={styles.resultDetailText}>
+                                    {result.items.length} item{result.items.length > 1 ? 's' : ''}
+                                </Text>
+                            </View>
                         )}
 
                         <TouchableOpacity
@@ -289,7 +301,7 @@ const styles = StyleSheet.create({
     searchButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 15 },
 
     // Permission
-    permIcon: { fontSize: 64, marginBottom: 16 },
+    permIcon: {},
     permTitle: { fontSize: 20, fontWeight: 'bold', color: '#111', marginBottom: 8 },
     permText: { fontSize: 14, color: '#6b7280', textAlign: 'center', marginBottom: 24 },
     permButton: { backgroundColor: '#2563eb', paddingHorizontal: 32, paddingVertical: 14, borderRadius: 12 },
@@ -321,6 +333,8 @@ const styles = StyleSheet.create({
     statusText: { fontSize: 12, fontWeight: '600' },
     deliveryNumber: { fontSize: 14, fontWeight: '700', color: '#2563eb' },
     resultDetail: { fontSize: 14, color: '#374151', marginBottom: 6 },
+    resultDetailRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
+    resultDetailText: { fontSize: 14, color: '#374151', flex: 1 },
     viewButton: {
         backgroundColor: '#2563eb',
         padding: 14,

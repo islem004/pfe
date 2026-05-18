@@ -67,10 +67,12 @@ export default function InvoiceManagement({ role = "admin" }) {
   const fetchInvoices = async () => {
     try {
       setLoading(true);
+      const headers = { Authorization: `Bearer ${localStorage.getItem('token')}` };
+      if (role === 'admin') {
+        await axios.post('/api/admin/invoices/generate-missing', {}, { headers }).catch(() => {});
+      }
       const endpoint = role === 'admin' ? '/api/admin/invoices' : '/api/invoices';
-      const response = await axios.get(endpoint, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
+      const response = await axios.get(endpoint, { headers });
       const data = response.data.data || response.data || [];
       setInvoices(Array.isArray(data) ? data : []);
     } catch (err) {

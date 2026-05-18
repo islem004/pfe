@@ -25,8 +25,8 @@ class DashboardController extends Controller
 
         $stats = [
             'total'             => Delivery::where('client_id', $client->id)->count(),
-            'pending'           => Delivery::where('client_id', $client->id)->where('status', 'pending')->count(),
-            'in_transit'        => Delivery::where('client_id', $client->id)->where('status', 'in_transit')->count(),
+            'pending'           => Delivery::where('client_id', $client->id)->whereIn('status', ['created', 'confirmed'])->count(),
+            'in_transit'        => Delivery::where('client_id', $client->id)->whereIn('status', ['shipped', 'picked_up'])->count(),
             'delivered'         => Delivery::where('client_id', $client->id)->where('status', 'delivered')->count(),
             'failed'            => Delivery::where('client_id', $client->id)->where('status', 'failed')->count(),
             'merchandise_value' => round((float) $merchandiseValue, 3),
@@ -50,7 +50,7 @@ class DashboardController extends Controller
 
         // Status distribution
         $byStatus    = $allDeliveries->groupBy('status');
-        $allStatuses = ['pending', 'confirmed', 'picked_up', 'in_transit', 'delivered', 'failed', 'cancelled'];
+        $allStatuses = ['created', 'confirmed', 'picked_up', 'shipped', 'delivered', 'failed', 'cancelled'];
         $statusDistribution = [];
         foreach ($allStatuses as $status) {
             $count = $byStatus->get($status, collect())->count();

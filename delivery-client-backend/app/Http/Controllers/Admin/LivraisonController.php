@@ -47,12 +47,12 @@ class LivraisonController extends Controller
                   ->orWhere('dest_city', 'like', $term);
 
                 // Safe Status Mapping
-                if (stripos('pending awaiting', $search) !== false) $q->orWhere('status', 'pending');
-                if (stripos('confirmed processed confirmed', $search) !== false) $q->orWhere('status', 'confirmed');
-                if (stripos('in_transit in transit shipping shipped', $search) !== false) $q->orWhere('status', 'in_transit');
-                if (stripos('delivered delivered', $search) !== false) $q->orWhere('status', 'delivered');
-                if (stripos('failed failed failure', $search) !== false) $q->orWhere('status', 'failed');
-                if (stripos('cancelled cancelled', $search) !== false) $q->orWhere('status', 'cancelled');
+                if (stripos('created pending awaiting', $search) !== false) $q->orWhere('status', 'created');
+                if (stripos('confirmed processed', $search) !== false) $q->orWhere('status', 'confirmed');
+                if (stripos('shipped in transit shipping', $search) !== false) $q->orWhere('status', 'shipped');
+                if (stripos('delivered', $search) !== false) $q->orWhere('status', 'delivered');
+                if (stripos('failed failure', $search) !== false) $q->orWhere('status', 'failed');
+                if (stripos('cancelled', $search) !== false) $q->orWhere('status', 'cancelled');
             });
         }
 
@@ -81,7 +81,7 @@ class LivraisonController extends Controller
     public function filtersData()
     {
         $statuses = [
-            'pending', 'confirmed', 'in_transit', 'delivered', 'failed', 'cancelled',
+            'created', 'confirmed', 'picked_up', 'shipped', 'delivered', 'failed', 'cancelled',
         ];
 
         return response()->json(compact('statuses'));
@@ -148,18 +148,13 @@ class LivraisonController extends Controller
             'delivery_address_text'  => $request->delivery_address_text ?? ($request->dest_street . ', ' . $request->dest_city),
             'scheduled_pickup_time'  => $request->scheduled_pickup_time,
             'scheduled_delivery_time'=> $request->scheduled_delivery_time,
-            'status'                 => 'pending',
+            'status'                 => 'created',
             'barcode_value'          => $barcodeValue,
             'barcode_format'         => 'CODE128',
             'shipping_fee'           => 0,
             'created_by'             => auth()->id(),
             'region_id'              => $request->region_id,
         ]);
-
-        $invSubtotal = 0;
-        $invTaxTotal = 0;
-        $invDiscountTotal = 0;
-        $invTotal = 0;
 
         foreach ($request->items as $index => $item) {
             $qty = $item['quantity'] ?? 1;
@@ -168,11 +163,6 @@ class LivraisonController extends Controller
             $discountAmount = $subtotal * (($item['discount_percent'] ?? 0) / 100);
             $taxAmount = ($subtotal - $discountAmount) * (($item['tax_rate'] ?? 0) / 100);
             $total = $subtotal - $discountAmount + $taxAmount;
-
-            $invSubtotal += $subtotal;
-            $invTaxTotal += $taxAmount;
-            $invDiscountTotal += $discountAmount;
-            $invTotal += $total;
 
             $delivery->items()->create([
                 'item_name'        => $item['item_name'] ?? ($item['name'] ?? 'Article ' . ($index + 1)),
@@ -187,16 +177,15 @@ class LivraisonController extends Controller
         }
 
         // CREATE INVOICE
-        $delivery->load('region');
-        ['delivery_fee' => $deliveryFee, 'tva_amount' => $tvaAmount] = $this->calculateDeliveryFee($delivery);
-        $this->generateInvoice($delivery, $request->client_id, $invTotal, $deliveryFee, $tvaAmount, auth()->id());
+        $delivery->load(['region', 'items', 'client.region']);
+        $this->generateInvoiceForDelivery($delivery);
 
         AuditLog::create([
             'user_id'    => auth()->id(),
             'action'     => 'delivery_created',
             'entity_type'=> 'delivery',
             'entity_id'  => $delivery->id,
-            'new_values' => ['delivery_number' => $delivery->delivery_number, 'status' => 'pending'],
+            'new_values' => ['delivery_number' => $delivery->delivery_number, 'status' => 'created'],
             'ip_address' => $request->ip(),
             'user_agent' => $request->userAgent(),
             'created_at' => now(),
@@ -207,7 +196,7 @@ class LivraisonController extends Controller
 
     public function show($id)
     {
-        $livraison = \App\Models\Delivery::with(['client.user', 'assignedStaff.user', 'statusHistories', 'items', 'invoices', 'region'])->findOrFail($id);
+        $livraison = \App\Models\Delivery::with(['client.user', 'assignedStaff.user', 'statusHistories', 'items', 'invoices', 'region', 'proofOfDelivery.createdBy'])->findOrFail($id);
         return response()->json($livraison);
     }
 
@@ -221,8 +210,8 @@ class LivraisonController extends Controller
             $staffChanged = $livraison->assigned_staff_id != $request->assigned_staff_id;
             $livraison->assigned_staff_id = $request->assigned_staff_id;
 
-            // AUTOMATION: If assigning a driver to a pending delivery, force it to 'confirmed'
-            if ($livraison->status === 'pending') {
+            // AUTOMATION: If assigning a driver to a created delivery, force it to 'confirmed'
+            if ($livraison->status === 'created') {
                 $livraison->status = 'confirmed';
             }
         }
@@ -330,8 +319,10 @@ class LivraisonController extends Controller
             }
 
             $statusLabel = match ($livraison->status) {
+                'created'    => 'Created',
                 'confirmed'  => 'Confirmed & Processed',
-                'in_transit' => 'In Transit',
+                'picked_up'  => 'Picked Up',
+                'shipped'    => 'Shipped',
                 'delivered'  => 'Delivered Successfully ✅',
                 'failed'     => 'Delivery Failed ❌',
                 'cancelled'  => 'Cancelled',

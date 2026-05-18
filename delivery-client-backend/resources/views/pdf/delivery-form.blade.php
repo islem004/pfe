@@ -133,11 +133,8 @@
 <table class="data-table">
     <thead>
         <tr>
-            <th style="width:6%;">#</th>
-            <th style="width:42%;">Description</th>
-            <th class="tc" style="width:16%;">Qty</th>
-            <th class="tr" style="width:18%;">Unit Price (TND)</th>
-            <th class="tr" style="width:18%;">Total (TND)</th>
+            <th style="width:8%;">#</th>
+            <th style="width:92%;">Description</th>
         </tr>
     </thead>
     <tbody>
@@ -145,20 +142,11 @@
         <tr>
             <td>{{ $i + 1 }}</td>
             <td>{{ $item->item_name }}</td>
-            <td class="tc">{{ $item->quantity }} {{ $item->unit ?? 'pcs' }}</td>
-            <td class="tr">{{ number_format($item->unit_price, 3) }}</td>
-            <td class="tr">{{ number_format($item->total ?? ($item->quantity * $item->unit_price), 3) }}</td>
         </tr>
         @empty
-        <tr><td colspan="5" class="tc" style="color:#aaa;font-style:italic;">No items listed</td></tr>
+        <tr><td colspan="2" class="tc" style="color:#aaa;font-style:italic;">No items listed</td></tr>
         @endforelse
     </tbody>
-    <tfoot>
-        <tr>
-            <td colspan="4" class="tr" style="color:#555;">Declared Value Total</td>
-            <td class="tr">{{ number_format($delivery->items->sum('total') ?: $delivery->item_price, 3) }} TND</td>
-        </tr>
-    </tfoot>
 </table>
 
 {{-- ── SPECIAL INSTRUCTIONS ── --}}

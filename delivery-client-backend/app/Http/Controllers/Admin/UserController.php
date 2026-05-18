@@ -93,11 +93,11 @@ class UserController extends Controller
     public function pending()
     {
         return response()->json(
-            User::where('status', 'pending_admin')
+            User::where('status', 'pending')
                 ->whereDoesntHave('roles', function ($query) {
                     $query->where('name', 'admin');
                 })
-                ->with('client')->get()
+                ->with(['client.region'])->latest()->get()
         );
     }
 
@@ -105,34 +105,42 @@ class UserController extends Controller
     {
         $user = User::findOrFail($id);
 
-        // Generate a random 10-character password
-        $plainPassword = Str::random(10);
-
         $user->update([
-            'status' => 'active',
-            'is_active' => true,
-            'password' => Hash::make($plainPassword),
-            'email_verified_at' => now(), // Auto-verify email
-            'verification_code' => null // Clear any existing code
+            'status'             => 'active',
+            'is_active'          => true,
+            'email_verified_at'  => now(),
+            'verification_code'  => null,
         ]);
 
-        // Send the real email containing the plain password
-        try {
-            Mail::to($user->email)->send(new AccountActivatedMail($user, $plainPassword));
-        } catch (\Exception $e) {
-            Log::error("Failed to send activation email to {$user->email}: " . $e->getMessage());
-        }
+        // TODO: send approval notification email to client once email service is configured.
 
         return response()->json([
-            'message' => "User approved. An email with the password has been sent to {$user->email}.",
-            'password_debug' => $plainPassword
+            'message' => "Account approved. {$user->email} can now log in.",
+            'user'    => $user->load('client'),
+        ]);
+    }
+
+    public function reject($id)
+    {
+        $user = User::findOrFail($id);
+
+        $user->update([
+            'status'    => 'rejected',
+            'is_active' => false,
+        ]);
+
+        // TODO: send rejection notification email to client once email service is configured.
+
+        return response()->json([
+            'message' => "Account rejected.",
+            'user'    => $user->load('client'),
         ]);
     }
 
     public function disable($id)
     {
         $user = User::findOrFail($id);
-        $user->update(['is_active' => false, 'status' => 'rejected']);
+        $user->update(['is_active' => false]);
 
         return response()->json([
             'message' => "User $id disabled"

@@ -160,6 +160,19 @@ const UserManagement = () => {
     }
   };
 
+  const handleReject = async (userId) => {
+    if (!confirm('Reject this account? The user will not be able to log in.')) return;
+    try {
+      await axios.post(`/api/admin/users/${userId}/reject`, {}, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      fetchUsers();
+      if (selectedUser?.id === userId) setSelectedUser(null);
+    } catch (error) {
+      alert('Error during rejection.');
+    }
+  };
+
   const handleDisable = async (userId) => {
     if (!confirm('Disable this account?')) return;
     try {
@@ -240,22 +253,22 @@ const UserManagement = () => {
 
   const getStatusLabel = (status) => {
     switch (status) {
-        case 'active': return 'Active';
-        case 'pending_admin': return 'Pending';
-        case 'rejected': return 'Disabled';
-        case 'pending_verification': return 'Email Verification';
-        default: return status;
+        case 'active':    return 'Active';
+        case 'pending':   return 'Pending Approval';
+        case 'rejected':  return 'Rejected';
+        default:          return status ?? 'Unknown';
     }
   };
 
   const getStatusColor = (status) => {
     switch (status) {
-        case 'active': return { bg: '#dcfce7', color: '#16a34a', border: '#bbf7d0' };
-        case 'pending_admin': return { bg: '#fef9c3', color: '#ca8a04', border: '#fef08a' };
+        case 'active':   return { bg: '#dcfce7', color: '#16a34a', border: '#bbf7d0' };
+        case 'pending':  return { bg: '#fef9c3', color: '#ca8a04', border: '#fef08a' };
         case 'rejected': return { bg: '#fee2e2', color: '#dc2626', border: '#fecaca' };
-        default: return { bg: '#f1f5f9', color: '#64748b', border: '#e2e8f0' };
+        default:         return { bg: '#f1f5f9', color: '#64748b', border: '#e2e8f0' };
     }
   };
+
 
   return (
     <div className="min-h-full">
@@ -323,10 +336,10 @@ const UserManagement = () => {
 
           <div className="flex gap-2">
             {[
-              { id: 'all', label: 'All' },
-              { id: 'active', label: 'Active' },
-              { id: 'pending_admin', label: 'Pending' },
-              { id: 'rejected', label: 'Disabled' }
+              { id: 'all',      label: 'All' },
+              { id: 'active',   label: 'Active' },
+              { id: 'pending',  label: 'Pending' },
+              { id: 'rejected', label: 'Rejected' }
             ].map((filter) => (
               <Button
                 key={filter.id}
@@ -419,7 +432,7 @@ const UserManagement = () => {
                     </div>
 
                     {/* Stats Grid */}
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-4 mb-4">
                       <div>
                         <div className="flex items-center gap-1.5 mb-1">
                           <Package className="size-4" style={{ color: '#94a3b8' }} />
@@ -431,8 +444,25 @@ const UserManagement = () => {
                           {user.client?.deliveries_count ?? 0}
                         </p>
                       </div>
-
                     </div>
+
+                    {/* Pending approval actions */}
+                    {user.status === 'pending' && (
+                      <div className="flex gap-2 pt-3 border-t border-slate-100" onClick={e => e.stopPropagation()}>
+                        <Button
+                          className="flex-1 h-10 rounded-xl text-xs font-black uppercase tracking-widest bg-emerald-500 hover:bg-emerald-600 text-white"
+                          onClick={() => handleApprove(user.id)}
+                        >
+                          <UserCheck className="size-3.5 mr-1.5" /> Approve
+                        </Button>
+                        <Button
+                          className="flex-1 h-10 rounded-xl text-xs font-black uppercase tracking-widest bg-red-500 hover:bg-red-600 text-white"
+                          onClick={() => handleReject(user.id)}
+                        >
+                          <UserMinus className="size-3.5 mr-1.5" /> Reject
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </div>
               )})}

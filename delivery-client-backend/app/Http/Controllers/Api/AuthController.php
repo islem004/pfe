@@ -36,14 +36,15 @@ class AuthController extends Controller
         $firstName = $nameParts[0];
         $lastName  = $nameParts[1] ?? $nameParts[0];
 
-        // Create user
+        // Create user — inactive until admin approves
         $user = User::create([
             'first_name' => $firstName,
             'last_name'  => $lastName,
             'email'      => $request->email,
             'password'   => Hash::make($request->password),
             'phone'      => $request->phone,
-            'is_active'  => true,
+            'status'     => 'pending',
+            'is_active'  => false,
         ]);
 
         // Assign client role
@@ -64,15 +65,12 @@ class AuthController extends Controller
             'region_id'        => $request->region_id,
             'contact_email'    => $request->email,
             'contact_phone'    => $request->phone2 ?? $request->phone,
-            'is_active'        => true,
+            'is_active'        => false,
         ]);
 
-        $token = $user->createToken('auth_token')->plainTextToken;
-
         return response()->json([
-            'message' => 'Registration successful',
-            'token'   => $token,
-            'user'    => $user->load('client'),
+            'message'    => 'Account created. Awaiting admin approval.',
+            'registered' => true,
         ], 201);
     }
 
@@ -100,7 +98,23 @@ class AuthController extends Controller
 
         $user = User::where('email', $request->email)->with('client', 'roles')->first();
 
-        // Check for disabled account after credentials are verified
+        // Check account status for client accounts
+        if ($user->hasRole('client')) {
+            if ($user->status === 'pending') {
+                return response()->json([
+                    'message' => 'Your account is pending admin approval. You\'ll be able to log in once an admin approves it.',
+                    'error'   => 'account_pending',
+                ], 403);
+            }
+            if ($user->status === 'rejected') {
+                return response()->json([
+                    'message' => 'Your account has been rejected. Contact support for more information.',
+                    'error'   => 'account_rejected',
+                ], 403);
+            }
+        }
+
+        // Check for disabled account
         if (!$user->is_active) {
             return response()->json([
                 'message' => 'Your account has been disabled. Please contact support.',

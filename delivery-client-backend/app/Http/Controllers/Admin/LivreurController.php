@@ -18,7 +18,7 @@ class LivreurController extends Controller
     public function index(): JsonResponse
     {
         return Response::json(Staff::withCount(['assignedDeliveries as active_deliveries_count' => function ($query) {
-                $query->whereIn('status', ['confirmed', 'picked_up', 'in_transit']);
+                $query->whereIn('status', ['confirmed', 'picked_up', 'shipped']);
             }])
             ->with('user', 'region')
             ->get());

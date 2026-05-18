@@ -16,8 +16,8 @@ class DashboardController extends Controller
             ->pluck('cnt', 'status');
 
         $total     = (int) $byStatus->sum();
-        $pending   = (int) (($byStatus['pending']   ?? 0) + ($byStatus['confirmed'] ?? 0));
-        $inTransit = (int) (($byStatus['in_transit'] ?? 0) + ($byStatus['picked_up'] ?? 0));
+        $pending   = (int) (($byStatus['created']   ?? 0) + ($byStatus['confirmed'] ?? 0));
+        $inTransit = (int) (($byStatus['shipped']   ?? 0) + ($byStatus['picked_up'] ?? 0));
         $delivered = (int) ($byStatus['delivered'] ?? 0);
 
         // ── Trend vs last month ──────────────────────────────────────

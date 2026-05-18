@@ -7,6 +7,7 @@ use App\Models\Delivery;
 use App\Models\Notification;
 use App\Models\ProofOfDelivery;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class StaffDeliveryController extends Controller
 {
@@ -60,7 +61,7 @@ class StaffDeliveryController extends Controller
     public function updateStatus(Request $request, $id)
     {
         $request->validate([
-            'status' => 'required|in:pending,confirmed,picked_up,in_transit,delivered,failed,cancelled',
+            'status' => 'required|in:created,confirmed,picked_up,shipped,delivered,failed,cancelled',
             'notes'  => 'nullable|string',
         ]);
 
@@ -83,9 +84,10 @@ class StaffDeliveryController extends Controller
             $client = $delivery->client;
             if ($client && $client->user_id) {
                 $statusLabel = match ($request->status) {
+                    'created'    => 'Created',
                     'confirmed'  => 'Confirmed & Processed',
                     'picked_up'  => 'Picked Up',
-                    'in_transit' => 'In Transit',
+                    'shipped'    => 'Shipped',
                     'delivered'  => 'Delivered Successfully',
                     'failed'     => 'Delivery Failed',
                     'cancelled'  => 'Cancelled',
@@ -122,7 +124,7 @@ class StaffDeliveryController extends Controller
         $total = $deliveries->count();
         $byStatus = $deliveries->groupBy('status');
 
-        $statuses = ['pending', 'confirmed', 'picked_up', 'in_transit', 'delivered', 'failed', 'cancelled', 'problem'];
+        $statuses = ['created', 'confirmed', 'picked_up', 'shipped', 'delivered', 'failed', 'cancelled'];
         $statusDistribution = [];
         foreach ($statuses as $status) {
             $count = $byStatus->has($status) ? $byStatus[$status]->count() : 0;
@@ -161,14 +163,70 @@ class StaffDeliveryController extends Controller
 
         return response()->json([
             'total'               => $total,
-            'delivered'           => $byStatus->has('delivered')   ? $byStatus['delivered']->count()   : 0,
-            'in_transit'          => $byStatus->has('in_transit')  ? $byStatus['in_transit']->count()  : 0,
-            'pending'             => $byStatus->has('pending')     ? $byStatus['pending']->count()     : 0,
-            'failed'              => $byStatus->has('failed')      ? $byStatus['failed']->count()      : 0,
-            'picked_up'           => $byStatus->has('picked_up')   ? $byStatus['picked_up']->count()   : 0,
+            'delivered'           => $byStatus->has('delivered')  ? $byStatus['delivered']->count()  : 0,
+            'shipped'             => $byStatus->has('shipped')     ? $byStatus['shipped']->count()    : 0,
+            'created'             => $byStatus->has('created')     ? $byStatus['created']->count()    : 0,
+            'failed'              => $byStatus->has('failed')      ? $byStatus['failed']->count()     : 0,
+            'picked_up'           => $byStatus->has('picked_up')   ? $byStatus['picked_up']->count()  : 0,
             'status_distribution' => $statusDistribution,
             'weekly_activity'     => $weeklyActivity,
             'recent_deliveries'   => $recent,
+        ]);
+    }
+
+    // Current staff's rank this month vs all other staff
+    public function myRank(Request $request)
+    {
+        $staff      = $request->user()->staff;
+        $monthStart = now()->startOfMonth();
+
+        $allStats = DB::table('staff as s')
+            ->leftJoin('deliveries as d', function ($j) use ($monthStart) {
+                $j->on('d.assigned_staff_id', '=', 's.id')
+                  ->where('d.created_at', '>=', $monthStart);
+            })
+            ->selectRaw("
+                s.id,
+                COUNT(CASE WHEN d.status = 'delivered' THEN 1 END) as completed,
+                COUNT(CASE WHEN d.status = 'failed'    THEN 1 END) as failed
+            ")
+            ->groupBy('s.id')
+            ->get()
+            ->map(function ($s) {
+                $s->completed    = (int) $s->completed;
+                $s->failed       = (int) $s->failed;
+                $total           = $s->completed + $s->failed;
+                $rate            = $total > 0 ? $s->completed / $total : 0;
+                $s->score        = round($s->completed * $rate, 2);
+                $s->success_rate = $total > 0 ? round($rate * 100) : 0;
+                return $s;
+            })
+            ->filter(fn ($s) => ($s->completed + $s->failed) > 0)
+            ->sortByDesc('score')
+            ->values();
+
+        $mine = $allStats->firstWhere('id', $staff->id);
+
+        if (!$mine) {
+            return response()->json([
+                'rank'         => null,
+                'completed'    => 0,
+                'failed'       => 0,
+                'success_rate' => 0,
+                'score'        => 0,
+                'total_ranked' => $allStats->count(),
+            ]);
+        }
+
+        $rank = $allStats->search(fn ($s) => $s->id === $staff->id) + 1;
+
+        return response()->json([
+            'rank'         => $rank,
+            'completed'    => $mine->completed,
+            'failed'       => $mine->failed,
+            'success_rate' => $mine->success_rate,
+            'score'        => $mine->score,
+            'total_ranked' => $allStats->count(),
         ]);
     }
 

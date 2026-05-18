@@ -43,54 +43,57 @@ Route::get('/regions', [\App\Http\Controllers\Admin\RegionController::class, 'in
 
 Route::middleware('auth:sanctum')->group(function () {
 
-    // ─── Auth ───
+    // ─── Auth (no approval gate — logout/me work for everyone) ───
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::get('/auth/me', [AuthController::class, 'me']);
     Route::put('/auth/update-password', [AuthController::class, 'updatePassword']);
     Route::post('/auth/profile', [AuthController::class, 'updateProfile']);
 
-    // ─── Client Profile ───
-    Route::get('/client/profile', [ClientController::class, 'show']);
-    Route::put('/client/profile', [ClientController::class, 'update']);
+    // ─── Client-only routes (approval-gated) ───────────────────────────
+    Route::middleware('client.approved')->group(function () {
+        // ─── Client Profile ───
+        Route::get('/client/profile', [ClientController::class, 'show']);
+        Route::put('/client/profile', [ClientController::class, 'update']);
 
-    // ─── Dashboard ───
-    Route::get('/dashboard', [DashboardController::class, 'index']);
+        // ─── Dashboard ───
+        Route::get('/dashboard', [DashboardController::class, 'index']);
 
-    // ─── Client Statistics ───
-    Route::get('/client/statistics', [\App\Http\Controllers\Api\ClientStatisticsController::class, 'index']);
+        // ─── Client Statistics ───
+        Route::get('/client/statistics', [\App\Http\Controllers\Api\ClientStatisticsController::class, 'index']);
 
-    // ─── Deliveries ───
-    Route::get('/deliveries', [DeliveryController::class, 'index']);
-    Route::post('/deliveries', [DeliveryController::class, 'store']);
-    Route::get('/deliveries/{id}', [DeliveryController::class, 'show']);
-    Route::put('/deliveries/{id}', [DeliveryController::class, 'update']);
-    Route::delete('/deliveries/{id}', [DeliveryController::class, 'destroy']);
-    Route::get('/deliveries/{id}/track', [DeliveryController::class, 'track']);
-    Route::get('/deliveries/{id}/print', [DeliveryController::class, 'printDeliveryForm']);
-    Route::post('/deliveries/{id}/rate', [DeliveryController::class, 'rate']);
+        // ─── Deliveries ───
+        Route::get('/deliveries', [DeliveryController::class, 'index']);
+        Route::post('/deliveries', [DeliveryController::class, 'store']);
+        Route::get('/deliveries/{id}', [DeliveryController::class, 'show']);
+        Route::put('/deliveries/{id}', [DeliveryController::class, 'update']);
+        Route::delete('/deliveries/{id}', [DeliveryController::class, 'destroy']);
+        Route::get('/deliveries/{id}/track', [DeliveryController::class, 'track']);
+        Route::get('/deliveries/{id}/print', [DeliveryController::class, 'printDeliveryForm']);
+        Route::post('/deliveries/{id}/rate', [DeliveryController::class, 'rate']);
 
-    // ─── Delivery Items ───
-    Route::post('/deliveries/{deliveryId}/items', [DeliveryItemController::class, 'store']);
-    Route::put('/deliveries/{deliveryId}/items/{itemId}', [DeliveryItemController::class, 'update']);
-    Route::delete('/deliveries/{deliveryId}/items/{itemId}', [DeliveryItemController::class, 'destroy']);
+        // ─── Delivery Items ───
+        Route::post('/deliveries/{deliveryId}/items', [DeliveryItemController::class, 'store']);
+        Route::put('/deliveries/{deliveryId}/items/{itemId}', [DeliveryItemController::class, 'update']);
+        Route::delete('/deliveries/{deliveryId}/items/{itemId}', [DeliveryItemController::class, 'destroy']);
 
-    // ─── Invoices ───
-    Route::get('/invoices', [InvoiceController::class, 'index']);
-    Route::get('/invoices/filter', [InvoiceController::class, 'filter']);
-    Route::get('/invoices/{id}', [InvoiceController::class, 'show']);
-    Route::get('/invoices/{id}/print', [InvoiceController::class, 'printInvoice']);
+        // ─── Invoices ───
+        Route::get('/invoices', [InvoiceController::class, 'index']);
+        Route::get('/invoices/filter', [InvoiceController::class, 'filter']);
+        Route::get('/invoices/{id}', [InvoiceController::class, 'show']);
+        Route::get('/invoices/{id}/print', [InvoiceController::class, 'printInvoice']);
 
-    // ─── Notifications ───
-    Route::get('/notifications', [NotificationController::class, 'index']);
-    Route::get('/notifications/unread', [NotificationController::class, 'unread']);
-    Route::put('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
-    Route::put('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
-    Route::delete('/notifications/{id}', [NotificationController::class, 'destroy']);
-    Route::delete('/notifications/delete-all', [NotificationController::class, 'destroyAll']);
+        // ─── Notifications ───
+        Route::get('/notifications', [NotificationController::class, 'index']);
+        Route::get('/notifications/unread', [NotificationController::class, 'unread']);
+        Route::put('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
+        Route::put('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
+        Route::delete('/notifications/{id}', [NotificationController::class, 'destroy']);
+        Route::delete('/notifications/delete-all', [NotificationController::class, 'destroyAll']);
 
-    // ─── Complaints (Client) ───
-    Route::get('/complaints', [\App\Http\Controllers\Api\ComplaintController::class, 'index']);
-    Route::post('/complaints', [\App\Http\Controllers\Api\ComplaintController::class, 'store']);
+        // ─── Complaints (Client) ───
+        Route::get('/complaints', [\App\Http\Controllers\Api\ComplaintController::class, 'index']);
+        Route::post('/complaints', [\App\Http\Controllers\Api\ComplaintController::class, 'store']);
+    });
 
     // ═══════════════════════════════════
     // ADMIN ROUTES
@@ -107,6 +110,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/users', [\App\Http\Controllers\Admin\UserController::class, 'store']);
         Route::get('/users/pending', [\App\Http\Controllers\Admin\UserController::class, 'pending']);
         Route::post('/users/{id}/approve', [\App\Http\Controllers\Admin\UserController::class, 'approve']);
+        Route::post('/users/{id}/reject', [\App\Http\Controllers\Admin\UserController::class, 'reject']);
         Route::post('/users/{id}/disable', [\App\Http\Controllers\Admin\UserController::class, 'disable']);
         Route::post('/users/{id}/enable', [\App\Http\Controllers\Admin\UserController::class, 'enable']);
         Route::delete('/users/{id}', [\App\Http\Controllers\Admin\UserController::class, 'delete']);
@@ -124,6 +128,7 @@ Route::middleware('auth:sanctum')->group(function () {
         // Invoices
         Route::get('/invoices', [\App\Http\Controllers\Admin\FactureController::class, 'index']);
         Route::post('/invoices/generate', [\App\Http\Controllers\Admin\FactureController::class, 'generate']);
+        Route::post('/invoices/generate-missing', [\App\Http\Controllers\Admin\FactureController::class, 'generateAllMissing']);
         Route::delete('/invoices/{id}', [\App\Http\Controllers\Admin\FactureController::class, 'destroy']);
 
         // Statistics
@@ -152,9 +157,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('staff')->group(function () {
         Route::post('/logout', [\App\Http\Controllers\Api\Staff\StaffAuthController::class, 'logout']);
         Route::get('/me', [\App\Http\Controllers\Api\Staff\StaffAuthController::class, 'me']);
+        Route::post('/profile', [\App\Http\Controllers\Api\Staff\StaffAuthController::class, 'updateProfile']);
 
         Route::get('/deliveries', [\App\Http\Controllers\Api\Staff\StaffDeliveryController::class, 'index']);
         Route::get('/deliveries/{id}', [\App\Http\Controllers\Api\Staff\StaffDeliveryController::class, 'show']);
+        Route::get('/my-rank', [\App\Http\Controllers\Api\Staff\StaffDeliveryController::class, 'myRank']);
         Route::post('/scan', [\App\Http\Controllers\Api\Staff\StaffDeliveryController::class, 'scanBarcode']);
         Route::put('/deliveries/{id}/status', [\App\Http\Controllers\Api\Staff\StaffDeliveryController::class, 'updateStatus']);
         Route::post('/deliveries/{id}/proof', [\App\Http\Controllers\Api\Staff\StaffDeliveryController::class, 'uploadProof']);

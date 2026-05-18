@@ -1,15 +1,19 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Link, useNavigate } from 'react-router-dom';
-import { Package, Mail, Lock, User, ShieldCheck, ArrowRight, Loader } from 'lucide-react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Package, Mail, Lock, User, ShieldCheck, ArrowRight, Loader, CheckCircle, Clock } from 'lucide-react';
 import axios from 'axios';
 import GlassBackButton from '../../components/ui/GlassBackButton';
 
 const Login = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const [formData, setFormData] = useState({ email: '', password: '' });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+
+    const registrationSuccess = location.state?.registrationSuccess;
+    const registrationMessage = location.state?.message;
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -29,7 +33,11 @@ const Login = () => {
             const errData = err.response?.data;
             const status = err.response?.status;
             if (status === 403) {
-                if (errData?.error === 'account_disabled') {
+                if (errData?.error === 'account_pending') {
+                    setError('Your account is pending admin approval. You\'ll be able to log in once an admin approves it.');
+                } else if (errData?.error === 'account_rejected') {
+                    setError('Your account has been rejected. Contact support for more information.');
+                } else if (errData?.error === 'account_disabled') {
                     setError('Your account has been disabled. Please contact support.');
                 } else if (errData?.error === 'account_deleted') {
                     setError('This account no longer exists.');
@@ -89,14 +97,24 @@ const Login = () => {
                     <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50/50 rounded-full -mr-16 -mt-16 blur-2xl"></div>
                     
                     <form onSubmit={handleSubmit} className="space-y-5 relative z-10">
-                        {error && (
-                            <motion.div 
+                        {registrationSuccess && (
+                            <motion.div
                                 initial={{ opacity: 0, scale: 0.95 }}
                                 animate={{ opacity: 1, scale: 1 }}
-                                className="bg-red-50 text-red-600 p-5 rounded-2xl text-xs font-black uppercase tracking-widest border border-red-100 flex items-center gap-3"
+                                className="bg-emerald-50 text-emerald-700 p-5 rounded-2xl text-xs font-bold border border-emerald-100 flex items-start gap-3"
                             >
-                                <div className="size-2 bg-red-600 rounded-full animate-pulse"></div>
-                                {error}
+                                <Clock className="size-4 shrink-0 mt-0.5 text-emerald-600" />
+                                <span>{registrationMessage}</span>
+                            </motion.div>
+                        )}
+                        {error && (
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                className="bg-red-50 text-red-600 p-5 rounded-2xl text-xs font-black border border-red-100 flex items-start gap-3"
+                            >
+                                <div className="size-2 bg-red-600 rounded-full animate-pulse shrink-0 mt-1"></div>
+                                <span>{error}</span>
                             </motion.div>
                         )}
 

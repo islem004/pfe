@@ -5,7 +5,7 @@ import {
     MapPin, Download,
     ClipboardCheck, Truck,
     Loader2, CheckCircle, X,
-    User, Phone, Building2, Package
+    User, Phone, Building2, Package, ImageIcon, ExternalLink
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card } from "../ui/card";
@@ -29,12 +29,12 @@ import {
 } from "../ui/select";
 
 const getStatusBadge = (status) => {
-    const norm = status ? status.toLowerCase() : "pending";
+    const norm = status ? status.toLowerCase() : "created";
     const configs = {
-        pending:    { label: 'Pending',    color: 'bg-amber-50 text-amber-700 border-amber-100' },
-        confirmed:  { label: 'Confirmed',  color: 'bg-blue-50 text-blue-700 border-blue-100' },
-        picked_up:  { label: 'Picked Up',  color: 'bg-sky-50 text-sky-700 border-sky-100' },
-        in_transit: { label: 'In Transit', color: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
+        created:    { label: 'Created',    color: 'bg-orange-50 text-orange-700 border-orange-100' },
+        confirmed:  { label: 'Confirmed',  color: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
+        picked_up:  { label: 'Picked Up',  color: 'bg-blue-50 text-blue-700 border-blue-100' },
+        shipped:    { label: 'Shipped',    color: 'bg-violet-50 text-violet-700 border-violet-100' },
         delivered:  { label: 'Delivered',  color: 'bg-emerald-50 text-emerald-700 border-emerald-100' },
         failed:     { label: 'Failed',     color: 'bg-red-50 text-red-700 border-red-100' },
         cancelled:  { label: 'Cancelled',  color: 'bg-slate-50 text-slate-700 border-slate-100' },
@@ -139,9 +139,9 @@ const DeliverySlipManagement = ({ role }) => {
 
     const stats = {
         total:     deliveries.length,
-        inTransit: deliveries.filter(d => ['in_transit', 'picked_up'].includes(d.status)).length,
+        inTransit: deliveries.filter(d => ['shipped', 'picked_up'].includes(d.status)).length,
         delivered: deliveries.filter(d => d.status === 'delivered').length,
-        pending:   deliveries.filter(d => ['pending', 'confirmed'].includes(d.status)).length,
+        pending:   deliveries.filter(d => ['created', 'confirmed'].includes(d.status)).length,
     };
 
     return (
@@ -195,10 +195,10 @@ const DeliverySlipManagement = ({ role }) => {
                         </SelectTrigger>
                         <SelectContent className="rounded-2xl border-slate-100 shadow-2xl">
                             <SelectItem value="all">All Status</SelectItem>
-                            <SelectItem value="pending">Pending</SelectItem>
+                            <SelectItem value="created">Created</SelectItem>
                             <SelectItem value="confirmed">Confirmed</SelectItem>
                             <SelectItem value="picked_up">Picked Up</SelectItem>
-                            <SelectItem value="in_transit">In Transit</SelectItem>
+                            <SelectItem value="shipped">Shipped</SelectItem>
                             <SelectItem value="delivered">Delivered</SelectItem>
                             <SelectItem value="failed">Failed</SelectItem>
                             <SelectItem value="cancelled">Cancelled</SelectItem>
@@ -512,6 +512,46 @@ const DeliverySlipManagement = ({ role }) => {
                                                         </div>
                                                     </div>
                                                 ))}
+                                            </div>
+                                        </section>
+                                    )}
+
+                                    {/* Proof of Delivery */}
+                                    {selectedDelivery.proof_of_delivery && (
+                                        <section>
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                                <ImageIcon className="size-3.5" /> Proof of Delivery
+                                            </p>
+                                            <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 space-y-4">
+                                                {Array.isArray(selectedDelivery.proof_of_delivery.photo_urls) && selectedDelivery.proof_of_delivery.photo_urls.length > 0 && (
+                                                    <div className="flex flex-wrap gap-3">
+                                                        {selectedDelivery.proof_of_delivery.photo_urls.map((url, i) => (
+                                                            <a
+                                                                key={i}
+                                                                href={`/storage/${url}`}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="block w-28 h-28 rounded-xl overflow-hidden border border-emerald-200 hover:opacity-80 transition-opacity relative group"
+                                                            >
+                                                                <img src={`/storage/${url}`} alt={`Proof ${i + 1}`} className="w-full h-full object-cover" />
+                                                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-center justify-center">
+                                                                    <ExternalLink className="size-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                                </div>
+                                                            </a>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                                <div className="space-y-1 text-sm">
+                                                    {selectedDelivery.proof_of_delivery.recipient_notes && (
+                                                        <p><span className="font-bold text-slate-500">Notes: </span>{selectedDelivery.proof_of_delivery.recipient_notes}</p>
+                                                    )}
+                                                    <p className="text-xs text-slate-400">
+                                                        Uploaded {fmt(selectedDelivery.proof_of_delivery.created_at)}
+                                                        {selectedDelivery.proof_of_delivery.created_by && (
+                                                            <> by {selectedDelivery.proof_of_delivery.created_by.first_name} {selectedDelivery.proof_of_delivery.created_by.last_name}</>
+                                                        )}
+                                                    </p>
+                                                </div>
                                             </div>
                                         </section>
                                     )}

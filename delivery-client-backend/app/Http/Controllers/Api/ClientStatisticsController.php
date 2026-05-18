@@ -30,7 +30,7 @@ class ClientStatisticsController extends Controller
         $getCount = fn(string $s) => $byStatus->get($s, collect())->count();
 
         // Status distribution
-        $allStatuses = ['pending', 'confirmed', 'picked_up', 'in_transit', 'delivered', 'failed', 'cancelled'];
+        $allStatuses = ['created', 'confirmed', 'picked_up', 'shipped', 'delivered', 'failed', 'cancelled'];
         $statusDistribution = [];
         foreach ($allStatuses as $status) {
             $count = $getCount($status);
@@ -90,8 +90,8 @@ class ClientStatisticsController extends Controller
         return response()->json([
             'total'               => $total,
             'delivered'           => $getCount('delivered'),
-            'in_transit'          => $getCount('in_transit'),
-            'pending'             => $getCount('pending'),
+            'shipped'             => $getCount('shipped'),
+            'created'             => $getCount('created'),
             'failed'              => $getCount('failed'),
             'picked_up'           => $getCount('picked_up'),
             'cancelled'           => $getCount('cancelled'),

@@ -65,16 +65,10 @@ export default function InvoiceManagement(props) {
       const headers = { Authorization: `Bearer ${token}` };
 
       if (userRole === 'admin') {
+        await axios.post('/api/admin/invoices/generate-missing', {}, { headers }).catch(() => {});
+
         const res = await axios.get('/api/admin/invoices', { headers });
         const invoices = res.data.data || res.data || [];
-
-        const delRes = await axios.get('/api/admin/deliveries', { headers });
-        const deliveries = delRes.data.data || delRes.data || [];
-
-        const missing = deliveries.filter(d => d.status === 'confirmed');
-        if (missing.length > 0) {
-            autoGenerateMissing(missing, headers);
-        }
 
         const normalized = invoices.map(inv => ({
           id: inv.invoice_number || inv.id,
@@ -123,17 +117,6 @@ export default function InvoiceManagement(props) {
       console.error("Error fetching data:", err);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const autoGenerateMissing = async (missing, headers) => {
-    try {
-        for (const d of missing) {
-            await axios.post('/api/admin/invoices/generate', { delivery_id: d.id }, { headers });
-        }
-        fetchData();
-    } catch (err) {
-        console.error("Silent auto-generation failed:", err);
     }
   };
 

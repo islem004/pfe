@@ -43,12 +43,12 @@ class DeliveryController extends Controller
                   ->orWhere('item_description', 'like', $term);
 
                 // Safe Status Mapping
-                if (stripos('pending awaiting', $search) !== false) $q->orWhere('status', 'pending');
-                if (stripos('confirmed processed confirmed', $search) !== false) $q->orWhere('status', 'confirmed');
-                if (stripos('in_transit in transit shipping shipped', $search) !== false) $q->orWhere('status', 'in_transit');
-                if (stripos('delivered delivered', $search) !== false) $q->orWhere('status', 'delivered');
-                if (stripos('failed failed failure', $search) !== false) $q->orWhere('status', 'failed');
-                if (stripos('cancelled cancelled', $search) !== false) $q->orWhere('status', 'cancelled');
+                if (stripos('created pending awaiting', $search) !== false) $q->orWhere('status', 'created');
+                if (stripos('confirmed processed', $search) !== false) $q->orWhere('status', 'confirmed');
+                if (stripos('shipped in transit shipping', $search) !== false) $q->orWhere('status', 'shipped');
+                if (stripos('delivered', $search) !== false) $q->orWhere('status', 'delivered');
+                if (stripos('failed failure', $search) !== false) $q->orWhere('status', 'failed');
+                if (stripos('cancelled', $search) !== false) $q->orWhere('status', 'cancelled');
             });
         }
 
@@ -148,7 +148,7 @@ class DeliveryController extends Controller
             'special_instructions'   => $request->special_instructions ?? $request->note,
             'region_id'              => $request->region_id,
             'pickup_region_id'       => $client->region_id,
-            'status'                 => 'pending',
+            'status'                 => 'created',
             'barcode_value'          => $barcodeValue,
             'barcode_format'         => 'CODE128',
             'shipping_fee'           => 0,
@@ -202,7 +202,7 @@ class DeliveryController extends Controller
         }
 
         $delivery->statusHistories()->create([
-            'status'     => 'pending',
+            'status'     => 'created',
             'updated_by' => $request->user()->id,
             'notes'      => 'Delivery created',
         ]);
@@ -212,7 +212,7 @@ class DeliveryController extends Controller
             'action'     => 'delivery_created',
             'entity_type'=> 'delivery',
             'entity_id'  => $delivery->id,
-            'new_values' => ['delivery_number' => $delivery->delivery_number, 'status' => 'pending'],
+            'new_values' => ['delivery_number' => $delivery->delivery_number, 'status' => 'created'],
             'ip_address' => $request->ip(),
             'user_agent' => $request->userAgent(),
             'created_at' => now(),
@@ -317,7 +317,7 @@ class DeliveryController extends Controller
 
         $delivery = Delivery::where('client_id', $client->id)
             ->with(['statusHistories' => function($query) {
-                $query->orderBy('updated_at', 'desc');
+                $query->orderBy('id', 'desc');
             }])
             ->findOrFail($id);
 

@@ -18,15 +18,15 @@ const RANGE_OPTIONS = [
 ];
 
 const STATUS_LABELS = {
-    pending: 'Pending', confirmed: 'Confirmed', picked_up: 'Picked Up',
-    in_transit: 'In Transit', delivered: 'Delivered', failed: 'Failed', cancelled: 'Cancelled',
+    created:   'Created',   confirmed: 'Confirmed', picked_up: 'Picked Up',
+    shipped:   'Shipped',   delivered: 'Delivered', failed:    'Failed',    cancelled: 'Cancelled',
 };
 
 const STATUS_STYLES = {
-    pending:    'bg-amber-50   text-amber-600   border-amber-100',
+    created:    'bg-orange-50  text-orange-600  border-orange-100',
     confirmed:  'bg-indigo-50  text-indigo-600  border-indigo-100',
     picked_up:  'bg-blue-50    text-blue-600    border-blue-100',
-    in_transit: 'bg-blue-50    text-blue-600    border-blue-100',
+    shipped:    'bg-violet-50  text-violet-600  border-violet-100',
     delivered:  'bg-emerald-50 text-emerald-600 border-emerald-100',
     failed:     'bg-red-50     text-red-600     border-red-100',
     cancelled:  'bg-slate-50   text-slate-600   border-slate-100',

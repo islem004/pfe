@@ -9,6 +9,7 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import api from '../../services/api';
 
 export default function NotificationsScreen() {
@@ -117,7 +118,7 @@ export default function NotificationsScreen() {
             {/* List or Empty */}
             {notifications.length === 0 ? (
                 <View style={styles.emptyContainer}>
-                    <Text style={styles.emptyIcon}>🔔</Text>
+                    <Ionicons name="notifications-outline" size={64} color="#9ca3af" style={{ marginBottom: 16 }} />
                     <Text style={styles.emptyTitle}>No notifications</Text>
                     <Text style={styles.emptySubtitle}>You're all caught up!</Text>
                 </View>
@@ -180,7 +181,7 @@ const styles = StyleSheet.create({
     listContent: { paddingBottom: 20 },
 
     emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 },
-    emptyIcon: { fontSize: 64, marginBottom: 16 },
+    emptyIcon: { marginBottom: 16 },
     emptyTitle: { fontSize: 18, fontWeight: '600', color: '#374151', marginBottom: 4 },
     emptySubtitle: { fontSize: 14, color: '#9ca3af' },
 });
