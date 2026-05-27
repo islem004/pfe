@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import {
     Search, Eye, Calendar,
@@ -62,17 +62,20 @@ const DeliverySlipManagement = ({ role }) => {
     const [detailError, setDetailError] = useState(false);
 
     const userRole = role || localStorage.getItem('role') || 'client';
+    const searchDebounceRef = useRef(null);
 
-    useEffect(() => {
-        fetchDeliveries();
-    }, [userRole]);
-
-    const fetchDeliveries = async () => {
+    const fetchDeliveries = async (search, status) => {
         try {
             setLoading(true);
             const token = localStorage.getItem('token');
             const endpoint = userRole === 'admin' ? '/api/admin/deliveries' : '/api/deliveries';
-            const response = await axios.get(endpoint, { headers: { Authorization: `Bearer ${token}` } });
+            const params = {};
+            if (search) params.search = search;
+            if (status && status !== 'all') params.status = status;
+            const response = await axios.get(endpoint, {
+                headers: { Authorization: `Bearer ${token}` },
+                params,
+            });
             const data = response.data.data || response.data || [];
             setDeliveries(Array.isArray(data) ? data : (data.data || []));
         } catch (err) {
@@ -81,6 +84,18 @@ const DeliverySlipManagement = ({ role }) => {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        fetchDeliveries('', 'all');
+    }, [userRole]);
+
+    useEffect(() => {
+        if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+        searchDebounceRef.current = setTimeout(() => {
+            fetchDeliveries(searchTerm, statusFilter);
+        }, 300);
+        return () => clearTimeout(searchDebounceRef.current);
+    }, [searchTerm, statusFilter]);
 
     // Eye button: fetch full delivery details and open modal
     const handleView = async (delivery) => {
@@ -127,15 +142,7 @@ const DeliverySlipManagement = ({ role }) => {
         }
     };
 
-    const filteredDeliveries = deliveries.filter(d => {
-        const matchesSearch =
-            d.delivery_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (d.client?.company_name && d.client.company_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-            (d.client_name && d.client_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-            (d.dest_city && d.dest_city.toLowerCase().includes(searchTerm.toLowerCase()));
-        const matchesStatus = statusFilter === 'all' || d.status === statusFilter;
-        return matchesSearch && matchesStatus;
-    });
+    const filteredDeliveries = deliveries;
 
     const stats = {
         total:     deliveries.length,

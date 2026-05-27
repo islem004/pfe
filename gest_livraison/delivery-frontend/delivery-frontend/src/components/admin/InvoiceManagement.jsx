@@ -51,6 +51,8 @@ export default function InvoiceManagement(props) {
   const [searchQuery, setSearchQuery] = useState("");
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewData, setPreviewData] = useState({ url: '', title: '', fileName: '' });
+  const [generating, setGenerating] = useState(false);
+  const [generateResult, setGenerateResult] = useState(null);
   
   const userRole = role || localStorage.getItem('role') || 'client';
 
@@ -65,8 +67,6 @@ export default function InvoiceManagement(props) {
       const headers = { Authorization: `Bearer ${token}` };
 
       if (userRole === 'admin') {
-        await axios.post('/api/admin/invoices/generate-missing', {}, { headers }).catch(() => {});
-
         const res = await axios.get('/api/admin/invoices', { headers });
         const invoices = res.data.data || res.data || [];
 
@@ -157,6 +157,23 @@ export default function InvoiceManagement(props) {
     } catch (err) { alert("Error opening the file."); }
   };
 
+  const handleGenerateMissing = async () => {
+    setGenerating(true);
+    setGenerateResult(null);
+    try {
+      const res = await axios.post('/api/admin/invoices/generate-missing', {}, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      const count = res.data?.generated ?? 0;
+      setGenerateResult({ success: true, message: count > 0 ? `${count} invoice(s) generated.` : 'All invoices are already up to date.' });
+      await fetchData();
+    } catch {
+      setGenerateResult({ success: false, message: 'Failed to generate invoices.' });
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   const filteredData = dataList.filter(inv => {
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
@@ -184,7 +201,24 @@ export default function InvoiceManagement(props) {
           <h1 className="text-3xl font-black text-slate-900 tracking-tight">Invoicing</h1>
           <p className="text-sm font-medium text-slate-500 mt-1">Manage your financial documents in real time</p>
         </div>
+        {userRole === 'admin' && (
+          <Button
+            onClick={handleGenerateMissing}
+            disabled={generating}
+            className="gap-2 h-11 rounded-2xl px-6 font-bold bg-slate-900 text-white hover:bg-slate-700 transition-all"
+          >
+            {generating ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+            Generate Missing Invoices
+          </Button>
+        )}
       </div>
+
+      {generateResult && (
+        <div className={`flex items-center gap-3 px-5 py-3 rounded-2xl text-sm font-bold border ${generateResult.success ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-red-50 text-red-700 border-red-100'}`}>
+          {generateResult.success ? <CheckCircle className="size-4 shrink-0" /> : <AlertCircle className="size-4 shrink-0" />}
+          {generateResult.message}
+        </div>
+      )}
 
       {/* Stats Section with New Design */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

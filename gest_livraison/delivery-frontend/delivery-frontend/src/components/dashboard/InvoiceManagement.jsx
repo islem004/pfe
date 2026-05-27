@@ -19,7 +19,9 @@ import {
   ArrowRight,
   Star,
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  RefreshCw,
+  AlertCircle
 } from "lucide-react";
 import {
   Table,
@@ -59,6 +61,8 @@ export default function InvoiceManagement({ role = "admin" }) {
   const [previewData, setPreviewData] = useState({ url: '', title: '', fileName: '' });
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [generateResult, setGenerateResult] = useState(null);
 
   useEffect(() => {
     fetchInvoices();
@@ -120,6 +124,23 @@ export default function InvoiceManagement({ role = "admin" }) {
   const openRating = (delivery) => {
     setSelectedDelivery(delivery);
     setIsRatingOpen(true);
+  };
+
+  const handleGenerateMissing = async () => {
+    setGenerating(true);
+    setGenerateResult(null);
+    try {
+      const res = await axios.post('/api/admin/invoices/generate-missing', {}, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      const count = res.data?.generated ?? 0;
+      setGenerateResult({ success: true, message: count > 0 ? `${count} invoice(s) generated.` : 'All invoices are already up to date.' });
+      await fetchInvoices();
+    } catch {
+      setGenerateResult({ success: false, message: 'Failed to generate invoices.' });
+    } finally {
+      setGenerating(false);
+    }
   };
 
   const handleDeleteConfirm = async () => {
@@ -193,9 +214,26 @@ export default function InvoiceManagement({ role = "admin" }) {
           <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-2">{pageTitle}</h1>
           <p className="text-sm font-medium text-slate-500">{pageDesc}</p>
         </div>
-        <div className="flex gap-4">
-        </div>
+        {role === 'admin' && (
+          <div className="flex gap-4">
+            <Button
+              onClick={handleGenerateMissing}
+              disabled={generating}
+              className="gap-2 h-11 rounded-2xl px-6 font-bold bg-slate-900 text-white hover:bg-slate-700 transition-all"
+            >
+              {generating ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+              Generate Missing Invoices
+            </Button>
+          </div>
+        )}
       </div>
+
+      {generateResult && (
+        <div className={`flex items-center gap-3 px-5 py-3 rounded-2xl text-sm font-bold border ${generateResult.success ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-red-50 text-red-700 border-red-100'}`}>
+          {generateResult.success ? <CheckCircle className="size-4 shrink-0" /> : <AlertCircle className="size-4 shrink-0" />}
+          {generateResult.message}
+        </div>
+      )}
 
       {/* Premium Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
